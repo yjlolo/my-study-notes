@@ -149,11 +149,51 @@ This is known as **variational expectation maximization**, because the E-step is
 
 If for *each* data $x^{(n)}$ there exists $\lambda^{(n)}$ such that $q(z;\lambda^{(n)}) = p(z|x^{(n)};\theta)$, we say that *the variational family is flexible enough to include the true posterior*, and **it reduces to the classic EM algorithm**. However, we are interested in finding a flexible variational family that allows for tractable optimization since we have assumed the exact posterior inference is intractable.
 
+##### gradient ascent (stochastic variational inference)
 
+In practice, performing coordinate ascent on the entire dataset is usually too expensive. Alternatively, gradient-based optimization can be performed over mini-batches. For each $x^{(n)}$ in the mini-batch (of size $B$) we initialize $\lambda^{(n)}_{0}$ and perform gradient ascent on the ELBO w.r.t. $\lambda$ for $K$ steps,
+$$
+\lambda_{k}^{(n)} = \lambda_{k-1}^{(n)} + \eta\nabla_{\lambda}\text{ELBO}(\theta, \lambda_{k}^{(n)};x^{(n)}),
+$$
+and for M-step, hold fixed the variational parameters $\lambda_{K}^{(1)}, \dots,\lambda_{K}^{(B)}$ and update $\theta$:
+$$
+\theta^{(i+1)} = \theta^{(i)} + \eta\nabla_{\theta}\sum_{n=1}^{B}\mathbb{E}_{q(z|\lambda_{K}^{(n)})}[\log p(x^{(n)},z;\theta^{(i)})].
+$$
+This is called *stochastic variational inference*.
 
+#### Deep inference and VAEs
 
+So far we have looked into two different ways of performing inference (i.e., calculating posterior distributions):
 
+1. calculating the exact posterior distribution $p(z|x;\theta)$ when it is tractable, and
+2. approximating posterior distributions by $q(z;\lambda)$ by updating $\lambda$.
 
+A third alternative is to train a neural network to predict variational parameters $\lambda$, *rather than arriving at $\lambda^{(n)}$'s by optimizing the ELBO w.r.t. to them*. 
 
-
-
+The idea is that instead of optimizing for each $x^{(n)}$ a $\lambda^{(n)}$, we make $z$ depend on $x$ and parameterize the variational distribution $q(z|x;\phi)$ equally across the entire dataset with $\phi$. This style of inference is known as *amortized variational inference*. When both $q(z|x;\phi)$ and $p(x|z;\theta)$ are parameterized using neural networks, we arrive variational auto encoders (VAEs). The term *autoencoder* is obvious when ELBO is rearranged as follows:
+$$
+\begin{split}
+\text{ELBO}(\theta, \phi;x) &= \mathbb{E}_{q(z|x;\phi)}[\log\frac{p(x|z;\theta)p(z;\theta)}{q(z|x;\phi)}] \\
+&= \mathbb{E}_{q(z|x;\phi)}[\log p(x|z;\theta)] - \text{KL}[q(z|x;\phi) || p(z;\theta)].
+\end{split}
+$$
+The inference network $q(z|x;\phi)$ and generative network $p(z|x;\theta)$ are jointly trained by maximizing the ELBO with gradient ascent:
+$$
+\theta^{(i+1)} = \theta^{(i)} + \eta\nabla_{\theta}\text{ELBO}(\theta^{(i)}, \phi^{(i)};x^{(n)})\\
+\phi^{(i+1)} = \phi^{(i)} + \eta\nabla_{\phi}\text{ELBO}(\theta^{(i)}, \phi^{(i)};x^{(n)}).
+$$
+Unlike the coordinate ascent-style training, $\theta$ and $\phi$ are trained jointly, where
+$$
+\begin{split}
+\nabla_{\theta}\text{ELBO}(\theta,\phi;x) &= \mathbb{E}_{q(z|x;\phi)}[\nabla_{\theta}\log p(x,z;\theta)]\\
+&= \mathbb{E}_{q(z|x;\phi)}[\nabla_{\theta}\log p(x|z;\theta)],
+\end{split}
+$$
+can be estimated with Monte Carlo samples with one sample. However, it is not trivial for $\nabla_{\phi}\text{ELBO}(\theta, \phi;x)$, but with $q(z|x;\phi) = \mathcal{N}(z;\mu,diag(\sigma^{2}))$ and reparameterization trick, 
+$$
+\begin{split}
+\nabla_{\phi}\mathbb{E}_{q(z|x;\phi)}[\log p(x|z;\theta)] &= \nabla_{\phi}\mathbb{E}_{\epsilon\sim\mathcal{N}(0,I)}[\log p(x|\mu + \sigma\epsilon;\theta)] \\
+&= \mathbb{E}_{\epsilon\sim\mathcal{N}(0,I)}[\nabla_{\phi}\log p(x|\mu + \sigma\epsilon;\theta)],
+\end{split}
+$$
+this again can be estimated with a single sample.

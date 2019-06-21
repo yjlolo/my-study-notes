@@ -28,7 +28,6 @@ These two tasks are intimately connecte because learning often uses inference as
 
 ### Tractable case
 Assuming tractable log marginal likelihood, i.e.
-
 $$
 \log p(x;\theta) = \log\sum_{z} p(x,z;\theta) 
 					= \log\sum_{z}p(z|x;\theta)p(x;\theta)
